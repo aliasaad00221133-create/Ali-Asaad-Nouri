@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'aliasaad00221133@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Validation Blueprint: SystemSnapshot
+    function isValidSystemSnapshot(data) {
+      return data.keys().hasAll(['ownerId', 'ownerEmail', 'payloadJson', 'version', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ownerId', 'ownerEmail', 'payloadJson', 'version', 'createdAt', 'updatedAt']) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.ownerEmail is string && data.ownerEmail.size() >= 3 && data.ownerEmail.size() <= 254 &&
+        data.payloadJson is string && data.payloadJson.size() >= 2 && data.payloadJson.size() <= 900000 &&
+        data.version is number && data.version >= 1 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Validation Blueprint: ClearanceRecord
+    function isValidClearanceRecord(data) {
+      return data.keys().hasAll(['ownerId', 'studentId', 'studentName', 'department', 'clearanceCode', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ownerId', 'studentId', 'studentName', 'department', 'clearanceCode', 'status', 'createdAt', 'updatedAt']) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.studentId is string && data.studentId.size() >= 3 && data.studentId.size() <= 64 && data.studentId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.studentName is string && data.studentName.size() >= 2 && data.studentName.size() <= 150 &&
+        data.department is string && data.department.size() >= 2 && data.department.size() <= 150 &&
+        data.clearanceCode is string && data.clearanceCode.size() >= 4 && data.clearanceCode.size() <= 64 && data.clearanceCode.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.status is string && data.status.size() >= 7 && data.status.size() <= 20 &&
+        (data.status == 'pending' || data.status == 'in_progress' || data.status == 'completed' || data.status == 'blocked') &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Collection 1: /system_snapshots/{snapshotId}
+    match /system_snapshots/{snapshotId} {
+      allow get: if isVerifiedUser() && isValidId(snapshotId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(snapshotId) &&
+        isValidSystemSnapshot(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidId(snapshotId) &&
+        isValidSystemSnapshot(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['payloadJson', 'version', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(snapshotId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    // Collection 2: /clearance_records/{clearanceId}
+    match /clearance_records/{clearanceId} {
+      allow get: if isVerifiedUser() && isValidId(clearanceId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() && existing().ownerId == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(clearanceId) &&
+        isValidClearanceRecord(incoming()) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidId(clearanceId) &&
+        isValidClearanceRecord(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().studentId == existing().studentId &&
+        incoming().clearanceCode == existing().clearanceCode &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid &&
+            existing().status != 'completed' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'studentName', 'department', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(clearanceId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+  }
+}

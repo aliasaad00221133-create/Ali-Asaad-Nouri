@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "SystemSnapshot": {
+      "title": "SystemSnapshot",
+      "description": "Synchronized university state snapshot owned by an authenticated user or administrator",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the authenticated user who owns this snapshot",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerEmail": {
+          "type": "string",
+          "description": "Verified email of the snapshot owner",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "payloadJson": {
+          "type": "string",
+          "description": "Serialized university state payload",
+          "minLength": 2,
+          "maxLength": 900000
+        },
+        "version": {
+          "type": "number",
+          "description": "Monotonic sync version counter"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update server timestamp"
+        }
+      },
+      "required": ["ownerId", "ownerEmail", "payloadJson", "version", "createdAt", "updatedAt"]
+    },
+    "ClearanceRecord": {
+      "title": "ClearanceRecord",
+      "description": "Digital clearance and smart university ID record for a student",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the user managing the clearance record",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "University student ID (e.g., STU-102941)",
+          "minLength": 3,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Full name of the student",
+          "minLength": 2,
+          "maxLength": 150
+        },
+        "department": {
+          "type": "string",
+          "description": "Academic department name",
+          "minLength": 2,
+          "maxLength": 150
+        },
+        "clearanceCode": {
+          "type": "string",
+          "description": "Unique verification barcode for digital clearance (e.g., CLR-102941)",
+          "minLength": 4,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "status": {
+          "type": "string",
+          "description": "Overall clearance status",
+          "enum": ["pending", "in_progress", "completed", "blocked"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation server timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Update server timestamp"
+        }
+      },
+      "required": ["ownerId", "studentId", "studentName", "department", "clearanceCode", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/system_snapshots/{snapshotId}": {
+      "schema": { "$ref": "#/entities/SystemSnapshot" },
+      "description": "Stores cloud-synchronized university system state per authenticated user"
+    },
+    "/clearance_records/{clearanceId}": {
+      "schema": { "$ref": "#/entities/ClearanceRecord" },
+      "description": "Stores student digital clearance and smart ID verification records"
+    }
+  }
+}

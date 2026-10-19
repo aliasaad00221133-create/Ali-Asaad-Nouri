@@ -1,0 +1,6 @@
+{
+  "name": "الجامعة الذكية التفاعلية - Royal University Edu System",
+  "description": "منظومة الجامعة الذكية التفاعلية الملكية لإدارة شؤون الطلبة والأساتذة، حضور وانصراف بالباركود الذكي، رصد درجات تفصيلي، محاضرات رقمية وبيئة تفاعلية 3D Three.js.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
